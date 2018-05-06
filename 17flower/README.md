@@ -17,8 +17,8 @@ Pretrained ResNet-18 available in torchvision, finetune using a new fc-layer.
 
 #### Loss
 
-![loss](/Users/wangzhengfei/Documents/GitHub/pytorch-deep-learning/17flower/loss.png)
+![loss](./loss.png)
 
 #### Accuracy
 
-![acc](/Users/wangzhengfei/Documents/GitHub/pytorch-deep-learning/17flower/acc.png)
+![acc](./acc.png)
