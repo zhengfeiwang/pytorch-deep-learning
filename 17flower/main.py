@@ -7,12 +7,15 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torchvision import datasets, transforms, models
+from tensorboardX import SummaryWriter
 
 N_CLASSES = 17
 N_EPOCHS = 50
 BATCH_SIZE = 8
 LEARNING_RATE = 1e-3
 NUM_WORKERS = 16
+
+writer = SummaryWriter()
 
 epoch_summary = []
 train_loss_summary = []
@@ -92,6 +95,11 @@ def train_model(model, criterion, optimizer, n_epochs=N_EPOCHS):
             print('{} Loss: {:.4f} Acc: {:.4f}'.format(phase, epoch_loss, epoch_acc))
 
             if phase is 'train':
+                writer.add_scalars('data/train', {'loss': epoch_loss, 'acc': epoch_acc}, epoch)
+            else:
+                writer.add_scalars('data/val', {'loss': epoch_loss, 'acc': epoch_acc}, epoch)
+
+            if phase is 'train':
                 train_loss_summary.append(epoch_loss)
                 train_acc_summary.append(epoch_acc)
             else:
@@ -136,6 +144,9 @@ if __name__ == "__main__":
     model_finetune = train_model(model_finetune, criterion, optimizer_finetune, n_epochs=N_EPOCHS)
     test_acc = test_model(model_finetune)
     print("Finetuned ResNet's accuracy on test set: ", test_acc)
+
+    writer.export_scalars_to_json('./all_scalars.json')
+    writer.close()
 
     plt.figure()
     plt.title("loss - Finetuning ResNet on 17 Category Flower Dataset")
