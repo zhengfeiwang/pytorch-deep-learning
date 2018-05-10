@@ -1,4 +1,4 @@
-# Tranfer Learning for 17 Category Flower Dataset
+# Transfer Learning for 17 Category Flower Dataset
 
 ### Environment
 
@@ -21,4 +21,4 @@ Pretrained ResNet-18 available in torchvision, finetune using a new fc-layer.
 
 #### Test set performance
 
-91.54% accuracy over 16 * 17 test images
+91.54% accuracy over 16 * 17 test images.
