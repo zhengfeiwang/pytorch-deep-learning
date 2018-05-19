@@ -1,4 +1,4 @@
-# Transfer Learning for 17 Category Flower Dataset
+# Deep Learning for 17 Category Flower Dataset
 
 ### Environment
 
@@ -11,14 +11,24 @@
 
 ### Model
 
-Pretrained ResNet-18 available in torchvision, finetune using a new fc-layer.
+- For retrain: AlexNet, architecture referenced from [torchvision.models](https://github.com/pytorch/vision/blob/master/torchvision/models/alexnet.py).
+- For transfer learning: pretrained ResNet-18 available in torchvision, finetune using a new fc-layer.
 
 ### Result
 
 #### Accuracy & Loss
 
-![acc_loss](./train.png)
+- retrained AlexNet: 200 epochs, learning rate = 1e-4
+
+![alexnet_acc_loss](./alexnet.PNG)
+
+- finetuned ResNet: 50 epochs, learning rate = 1e-3
+
+  ![resnet_acc_loss](./resnet.PNG)
 
 #### Test set performance
 
-91.54% accuracy over 16 * 17 test images.
+performance: accuracy over 16 * 17 test images
+
+- retrained AlexNet: 84.93%
+- finetuned ResNet: 92.65%

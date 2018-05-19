@@ -11,14 +11,13 @@ import torch.optim as optim
 from torchvision import datasets, transforms, models
 from tensorboardX import SummaryWriter
 
+from model import AlexNet
+
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 writer = SummaryWriter()
 
 
 def train_model(dataloader, model, criterion, optimizer, n_epochs, dataset_size):
-    best_model_weights = copy.deepcopy(model.state_dict())
-    best_acc = 0.0
-
     for epoch in range(n_epochs):
         print('Epoch {}/{}'.format(epoch + 1, n_epochs))
         print('-' * 10)
@@ -51,16 +50,10 @@ def train_model(dataloader, model, criterion, optimizer, n_epochs, dataset_size)
             epoch_accuracy[phase] = running_corrects.double() / dataset_size[phase]
             print('{} Loss: {:.4f} Acc: {:.4f}'.format(phase, epoch_loss[phase], epoch_accuracy[phase]))
 
-            if phase is 'val' and epoch_accuracy[phase] > best_acc:
-                best_acc = epoch_accuracy[phase]
-                best_model_weights = copy.deepcopy(model.state_dict())
-
         writer.add_scalars('loss', {'train': epoch_loss['train'], 'val': epoch_loss['val']}, epoch)
         writer.add_scalars('accuracy', {'train': epoch_accuracy['train'], 'val': epoch_accuracy['val']}, epoch)
         print()
-        
-    print('Best val Acc: {:.4f}'.format(best_acc))
-    model.load_state_dict(best_model_weights)
+
     return model
 
 
@@ -85,22 +78,36 @@ def model_finetune(number_class):
     return model
 
 
+def model_retrain(number_class):
+    model = AlexNet(number_class)
+    model = model.to(device)
+    return model
+
+
 def main(args):
     torch.manual_seed(args.seed)    # set random seed
     if os.path.exists(args.weights_file) is False:
         args.evaluation = False
     dataloader, dataset_size = load_data(args.evaluation, args.data_dir, args.batch_size, args.number_worker)
     if args.evaluation is False:
-        model = model_finetune(args.number_class)
+        if args.retrain is False:
+            print('finetune ResNet...')
+            model = model_finetune(args.number_class)
+        else:
+            print('retrain AlexNet...')
+            model = model_retrain(args.number_class)
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
         model = train_model(dataloader, model, criterion, optimizer, args.number_epoch, dataset_size)
         torch.save(model.state_dict(), args.weights_file)
     else:
-        model = model_finetune(args.number_class)
+        if args.retrain is False:
+            model = model_finetune(args.number_class)
+        else:
+            model = model_retrain(args.number_class)
         model.load_state_dict(torch.load(args.weights_file))
         test_acc = evaluate_model(dataloader, model, dataset_size)
-        print('finetuned model performance (accuracy) on test set: {:.4f}'.format(test_acc))
+        print('model performance (accuracy) on test set: {:.4f}'.format(test_acc))
     writer.close()
 
 
@@ -152,6 +159,7 @@ def parse_args():
     parser.add_argument('--number_worker', type=int, default=16, help='number of multiprocess worker (default: 16)')
     parser.add_argument('--seed', type=int, default=730, help='random seed (default: 730)')
     parser.add_argument('--weights_file', type=str, default='weights.pt', help='model weights file path (default: weights.pt)')
+    parser.add_argument('--retrain', default=False, action='store_true', help='whether retrain a new model (default: False)')
     args = parser.parse_args()
     return args
 
