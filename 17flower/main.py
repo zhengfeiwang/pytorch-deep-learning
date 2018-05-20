@@ -2,9 +2,6 @@
 import os
 import copy
 import argparse
-import matplotlib
-matplotlib.use('Agg') # must before import pyplot
-import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import torch.optim as optim
