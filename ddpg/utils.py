@@ -8,7 +8,7 @@ class RunningMeanStd(object):
         self._count = epsilon
 
         self.mean = self._sum / self._count
-        self.std = np.sqrt(np.max(self._sumsq / self._count - np.square(self.mean), 1e-2))
+        self.std = np.sqrt(np.max([self._sumsq / self._count - np.square(self.mean), 1e-2]))
     
     def update(self, x):
         x = x.astype('float64')
