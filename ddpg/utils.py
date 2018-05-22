@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 
 
 class RunningMeanStd(object):
@@ -28,3 +29,11 @@ def soft_update(target, source, tau):
 def hard_update(target, source):
     for target_param, param in zip(target.parameters(), source.parameters()):
         target_param.data.copy_(param.data)
+
+
+def to_numpy(var):
+    return var.data.numpy()
+
+
+def to_tensor(ndarray, requires_grad=False):
+    return torch.from_numpy(ndarray).requires_grad_(requires_grad).float()

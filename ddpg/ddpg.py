@@ -65,9 +65,9 @@ class DDPG(object):
     
     def policy(self, obs, apply_noise=True, compute_Q=True):
         obs = np.array([obs])
-        action = self.actor(torch.from_numpy(obs)).numpy().squeeze(0)
+        action = to_numpy(self.actor(to_tensor(obs))).squeeze(0)
         if compute_Q is True:
-            q = self.critic([torch.from_numpy(obs), torch.from_numpy(action)]).data
+            q = self.critic([to_tensor(obs), to_tensor(action)]).data
         else:
             q = None
         if apply_noise is True:
@@ -79,20 +79,20 @@ class DDPG(object):
     def train(self):
         batch = self.memory.sample(batch_size=self.batch_size)
 
-        next_q = self.critic_target([torch.from_numpy(batch['obs1']), 
-                                     self.actor_target(torch.from_numpy(batch['obs1']))])
-        target_q_batch = torch.from_numpy(batch['rewards']) + self.discount * torch.from_numpy(
+        next_q = self.critic_target([to_tensor(batch['obs1']), 
+                                     self.actor_target(to_tensor(batch['obs1']))])
+        target_q_batch = to_tensor(batch['rewards']) + self.discount * to_tensor(
             1 - batch['terminals1'].astype('float32')
         ) * next_q
         
-        self.critic_optim.zero_grad()
-        q_batch = self.critic([torch.from_numpy(batch['obs0']), torch.from_numpy(batch['actions'])])
+        self.critic.zero_grad()
+        q_batch = self.critic([to_tensor(batch['obs0']), to_tensor(batch['actions'])])
         value_loss = criterion(q_batch, target_q_batch)
         value_loss.backward()
         self.critic_optim.step()
 
-        self.actor_optim.zero_grad()
-        policy_loss = -self.critic([torch.from_numpy(batch['obs0']), self.actor(torch.from_numpy(batch['obs0']))]).mean()
+        self.actor.zero_grad()
+        policy_loss = -self.critic([to_tensor(batch['obs0'], self.actor(to_tensor(batch['obs0'])))]).mean()
         policy_loss.backward()
         self.actor_optim.step()
 
