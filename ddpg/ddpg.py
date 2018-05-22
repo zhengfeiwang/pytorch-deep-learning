@@ -87,12 +87,12 @@ class DDPG(object):
         
         self.critic.zero_grad()
         q_batch = self.critic([to_tensor(batch['obs0']), to_tensor(batch['actions'])])
-        value_loss = criterion(q_batch, target_q_batch)
+        value_loss = criterion(q_batch, target_q_batch.detach())
         value_loss.backward()
         self.critic_optim.step()
 
         self.actor.zero_grad()
-        policy_loss = -self.critic([to_tensor(batch['obs0'], self.actor(to_tensor(batch['obs0'])))]).mean()
+        policy_loss = -self.critic([to_tensor(batch['obs0']), self.actor(to_tensor(batch['obs0']))]).mean()
         policy_loss.backward()
         self.actor_optim.step()
 

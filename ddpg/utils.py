@@ -1,6 +1,9 @@
 import numpy as np
 import torch
 
+USE_CUDA = torch.cuda.is_available()
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
 
 class RunningMeanStd(object):
     def __init__(self, epsilon=1e-2):
@@ -32,8 +35,9 @@ def hard_update(target, source):
 
 
 def to_numpy(var):
-    return var.data.numpy()
+    return var.cpu().data.numpy() if USE_CUDA is True else var.data.numpy()
 
 
-def to_tensor(ndarray, requires_grad=False):
-    return torch.from_numpy(ndarray).requires_grad_(requires_grad).float()
+def to_tensor(ndarray):
+    tensor = torch.from_numpy(ndarray).float()
+    return tensor.to(device) if USE_CUDA is True else tensor
