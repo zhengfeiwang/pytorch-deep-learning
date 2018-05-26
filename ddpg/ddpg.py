@@ -4,7 +4,7 @@ import torch.nn as nn
 from torch.optim import Adam
 from memory import ReplayBuffer
 from model import Actor, Critic
-from utils import Noise
+from utils import OrnsteinUhlenbeckProcess
 from utils import to_numpy, to_tensor, soft_update, hard_update
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -12,12 +12,10 @@ criterion = nn.MSELoss()
 
 
 class DDPG(object):
-    def __init__(self, nb_states, nb_actions, args, writer):
+    def __init__(self, nb_states, nb_actions, args):
         self.nb_states = nb_states
         self.nb_actions = nb_actions
         self.discrete = args.discrete
-        self.writer = writer
-        self.timestep = 0
 
         net_config = {
             'hidden1' : args.hidden1,
@@ -31,14 +29,14 @@ class DDPG(object):
 
         self.critic = Critic(self.nb_states, self.nb_actions, **net_config)
         self.critic_target = Critic(self.nb_states, self.nb_actions, **net_config)
-        self.critic_optim = Adam(self.critic.parameters(), lr=args.critic_lr)
+        self.critic_optim = Adam(self.critic.parameters(), lr=args.critic_lr, weight_decay=args.weight_decay)
 
         hard_update(self.critic_target, self.critic)
         hard_update(self.actor_target, self.actor)
 
         # Replay Buffer and noise
         self.memory = ReplayBuffer(args.memory_size)
-        self.noise = Noise(nb_actions)
+        self.noise = OrnsteinUhlenbeckProcess(mu=np.zeros(nb_actions), sigma=float(0.2) * np.ones(nb_actions))
 
         self.last_state = None
         self.last_action = None
@@ -73,6 +71,7 @@ class DDPG(object):
 
     def reset(self, obs):
         self.last_state = obs
+        self.noise.reset()
 
     def observe(self, reward, state, done):
         self.memory.append([self.last_state, self.last_action, reward, state, done])
@@ -83,17 +82,18 @@ class DDPG(object):
         self.last_action = action
         return action.argmax() if self.discrete else action
 
-    def select_action(self, state):
+    def select_action(self, state, exploration_noise=0):
         self.eval()
         action = to_numpy(self.actor(to_tensor(np.array([state]), device=device))).squeeze(0)
         self.train()
-        action = action + self.noise.sample()
+        action = action * (1 - exploration_noise) + self.noise.sample() * exploration_noise
         action = np.clip(action, -1., 1.)
         self.last_action = action
         return action.argmax() if self.discrete else action
 
     def update_policy(self):
         state_batch, action_batch, reward_batch, next_state_batch, terminal_batch = self.memory.sample_batch(self.batch_size)
+
         next_q_values = self.critic_target([
             to_tensor(next_state_batch, device=device),
             self.actor_target(to_tensor(next_state_batch, device=device))
@@ -118,10 +118,6 @@ class DDPG(object):
         policy_loss = policy_loss.mean()
         policy_loss.backward()
         self.actor_optim.step()
-
-        if self.writer is not None:
-            self.writer.add_scalar('train/policy_loss', policy_loss, self.timestep)
-            self.timestep += 1
 
         # Target update
         soft_update(self.actor_target, self.actor, self.tau)
