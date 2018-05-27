@@ -124,3 +124,35 @@ class DDPG(object):
         soft_update(self.critic_target, self.critic, self.tau)
 
         return -policy_loss, value_loss
+
+    def save_model(self, output, num=1):
+        if self.use_cuda:
+            self.actor.to(torch.device("cpu"))
+            self.critic.to(torch.device("cpu"))
+        torch.save(
+            self.actor.state_dict(),
+            '{}/actor{}.pkl'.format(output, num)
+        )
+        torch.save(
+            self.critic.state_dict(),
+            '{}/critic{}.pkl'.format(output, num)
+        )
+        if self.use_cuda:
+            self.actor.to(device)
+            self.critic.to(device)
+
+    def load_model(self, output, num=1):
+        self.actor.load_state_dict(
+            torch.load('{}/actor{}.pkl'.format(output, num))
+        )
+        self.actor_target.load_state_dict(
+            torch.load('{}/actor{}.pkl'.format(output, num))
+        )
+        self.critic.load_state_dict(
+            torch.load('{}/critic{}.pkl'.format(output, num))
+        )
+        self.critic_target.load_state_dict(
+            torch.load('{}/critic{}.pkl'.format(output, num))
+        )
+        if self.use_cuda:
+            self.cuda()
