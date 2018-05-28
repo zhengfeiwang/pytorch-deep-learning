@@ -8,7 +8,6 @@ from utils import OrnsteinUhlenbeckProcess
 from utils import to_numpy, to_tensor, soft_update, hard_update
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-criterion = nn.MSELoss()
 
 
 class DDPG(object):
@@ -45,6 +44,8 @@ class DDPG(object):
         self.batch_size = args.batch_size
         self.tau = args.tau
         self.discount = args.discount
+        self.epsilon = 1.
+        self.epsilon_decay = 1. / args.epsilon_decay
 
         # CUDA
         self.use_cuda = args.cuda
@@ -82,10 +83,13 @@ class DDPG(object):
         self.last_action = action
         return action.argmax() if self.discrete else action
 
-    def select_action(self, state, exploration_noise=0):
+    def select_action(self, state, exploration_noise=0, exploration_decay=True):
         self.eval()
         action = to_numpy(self.actor(to_tensor(np.array([state]), device=device))).squeeze(0)
         self.train()
+        exploration_noise = exploration_noise * max(self.epsilon, 0)
+        if exploration_decay:
+            self.epsilon -= self.epsilon_decay
         action = action * (1 - exploration_noise) + self.noise.sample() * exploration_noise
         action = np.clip(action, -1., 1.)
         self.last_action = action
@@ -94,19 +98,18 @@ class DDPG(object):
     def update_policy(self):
         state_batch, action_batch, reward_batch, next_state_batch, terminal_batch = self.memory.sample_batch(self.batch_size)
 
+        # compute target Q value
         next_q_values = self.critic_target([
             to_tensor(next_state_batch, device=device),
             self.actor_target(to_tensor(next_state_batch, device=device))
         ])
-        next_q_values.requires_grad_()
-
         target_q_batch = to_tensor(reward_batch, device=device) + \
                          self.discount * to_tensor((1 - terminal_batch.astype(np.float)), device=device) * next_q_values
 
         # Critic and Actor update
         self.critic.zero_grad()
         q_batch = self.critic([to_tensor(state_batch, device=device), to_tensor(action_batch, device=device)])
-        critic_loss = criterion(q_batch, target_q_batch.detach())
+        critic_loss = nn.MSELoss()(q_batch, target_q_batch.detach())
         critic_loss.backward()
         self.critic_optim.step()
 

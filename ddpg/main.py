@@ -43,14 +43,14 @@ def train(nb_iterations, agent, env, evaluator):
                 if episode > 0 and episode % args.validate_interval == 0:
                     validation_reward = evaluator(env, agent.select_action, visualize=False)
                     print('[validation] episode #{}, reward={}'.format(episode, np.mean(validation_reward)))
-
+                    writer.add_scalar('validation/reward', np.mean(validation_reward, step))
 
             for i in range(episode_steps):
                 if step > args.warmup:
                     log += 1
-                    Q, value_loss = agent.update_policy()
+                    Q, critic_loss = agent.update_policy()
                     writer.add_scalar('train/Q', Q.to(torch.device("cpu")).detach().numpy(), log)
-                    writer.add_scalar('train/critic loss', value_loss.to(torch.device("cpu")).detach().numpy(), log)
+                    writer.add_scalar('train/critic loss', critic_loss.to(torch.device("cpu")).detach().numpy(), log)
 
             writer.add_scalar('train/train_reward', episode_reward, episode)
 
@@ -86,6 +86,7 @@ if __name__ == "__main__":
     parser.add_argument('--iterations', default=2000000, type=int, help='iterations during training')
     parser.add_argument('--warmup', default=1000, type=int, help='timestep without training to fill the replay buffer')
     parser.add_argument('--noise_level', default=1, type=float, help='noise level added to the action')
+    parser.add_argument('--epsilon_decay', default=10000000, type=int, help='linear decay of exploration')
     parser.add_argument('--validate_interval', default=10, type=int, help='how many episodes to validate')
     parser.add_argument('--save_interval', default=100, type=int, help='how many episodes to save model')
 
@@ -100,11 +101,9 @@ if __name__ == "__main__":
 
     writer = SummaryWriter(os.path.join(args.output, args.env))
 
+    env = gym.make(args.env)
     if args.discrete:
-        env = gym.make(args.env)
         env = env.unwrapped
-    else:
-        env = gym.make(args.env)
 
     # set random seed
     if args.seed > 0:

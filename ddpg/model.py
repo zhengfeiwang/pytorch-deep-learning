@@ -83,7 +83,6 @@ class Critic(nn.Module):
         s = self.relu(s)
         out = self.fc2(torch.cat([s, action], 1))
         out = self.relu(out)
-        out = self.relu(out)
         out = self.fc3(out)
 
         return out

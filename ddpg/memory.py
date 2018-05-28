@@ -16,7 +16,8 @@ class ReplayBuffer(object):
             self.buffer.append(obj)
         else:
             self.buffer[self.index] = obj
-            self.index = (self.index + 1) % self.buffer_size
+            self.index += 1
+            self.index %= self.buffer_size
 
     def sample_batch(self, batch_size):
         if self.size() < batch_size:
