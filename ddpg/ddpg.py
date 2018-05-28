@@ -101,29 +101,28 @@ class DDPG(object):
         next_q_values.requires_grad_()
 
         target_q_batch = to_tensor(reward_batch, device=device) + \
-                         self.discount * to_tensor((1 - terminal_batch.astype(np.float))) * next_q_values
+                         self.discount * to_tensor((1 - terminal_batch.astype(np.float)), device=device) * next_q_values
 
         # Critic and Actor update
         self.critic.zero_grad()
         q_batch = self.critic([to_tensor(state_batch, device=device), to_tensor(action_batch, device=device)])
-        value_loss = criterion(q_batch, target_q_batch.detach())
-        value_loss.backward()
+        critic_loss = criterion(q_batch, target_q_batch.detach())
+        critic_loss.backward()
         self.critic_optim.step()
 
         self.actor.zero_grad()
-        policy_loss = -self.critic([
+        actor_loss = -self.critic([
             to_tensor(state_batch, device=device),
             self.actor(to_tensor(state_batch, device=device))
-        ])
-        policy_loss = policy_loss.mean()
-        policy_loss.backward()
+        ]).mean()
+        actor_loss.backward()
         self.actor_optim.step()
 
         # Target update
         soft_update(self.actor_target, self.actor, self.tau)
         soft_update(self.critic_target, self.critic, self.tau)
 
-        return -policy_loss, value_loss
+        return -actor_loss, critic_loss
 
     def save_model(self, output, num=1):
         if self.use_cuda:

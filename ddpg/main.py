@@ -1,4 +1,5 @@
 import os
+import time
 import random
 import argparse
 import numpy as np
@@ -16,6 +17,7 @@ def train(nb_iterations, agent, env, evaluator):
     observation = None
     log = 0
     noise_level = args.noise_level * random.uniform(0, 1) / 2.
+    time_stamp = time.time()
 
     while step <= nb_iterations:
         if observation is None:
@@ -37,14 +39,11 @@ def train(nb_iterations, agent, env, evaluator):
         episode_reward += reward
         if done:
             if step > args.warmup:
-                print('Episode #{}: reward={}, steps={}, noise level={:.2f}'.format(
-                    episode, episode_reward, episode_steps, noise_level
-                ))
-
                 # validation
                 if episode > 0 and episode % args.validate_interval == 0:
                     validation_reward = evaluator(env, agent.select_action, visualize=False)
                     print('[validation] episode #{}, reward={}'.format(episode, np.mean(validation_reward)))
+
 
             for i in range(episode_steps):
                 if step > args.warmup:
@@ -54,6 +53,13 @@ def train(nb_iterations, agent, env, evaluator):
                     writer.add_scalar('train/critic loss', value_loss.to(torch.device("cpu")).detach().numpy(), log)
 
             writer.add_scalar('train/train_reward', episode_reward, episode)
+
+            # log
+            train_time = time.time() - time_stamp
+            time_stamp = time.time()
+            print('episode#{}: reward={}, steps={}, noise_level={:.2f}, time={:.2f}'.format(
+                    episode, episode_reward, episode_steps, noise_level, train_time
+            ))
 
             observation = None
             episode_steps = 0
