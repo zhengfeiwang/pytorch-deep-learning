@@ -28,6 +28,7 @@ def train(nb_iterations, agent, env, evaluator):
             action = agent.random_action()
         else:
             action = agent.select_action(observation, exploration_noise=noise_level)
+        print('action:', action)
 
         observation, reward, done, info = env.step(action)
         if visualization:
@@ -43,10 +44,9 @@ def train(nb_iterations, agent, env, evaluator):
                 if episode > 0 and episode % args.validate_interval == 0:
                     validation_reward = evaluator(env, agent.select_action, visualize=False)
                     print('[validation] episode #{}, reward={}'.format(episode, np.mean(validation_reward)))
-                    writer.add_scalar('validation/reward', np.mean(validation_reward, step))
+                    writer.add_scalar('validation/reward', np.mean(validation_reward), step)
 
-            for i in range(episode_steps):
-                if step > args.warmup:
+                for i in range(episode_steps):
                     log += 1
                     Q, critic_loss = agent.update_policy()
                     writer.add_scalar('train/Q', Q.to(torch.device("cpu")).detach().numpy(), log)
@@ -55,10 +55,10 @@ def train(nb_iterations, agent, env, evaluator):
             writer.add_scalar('train/train_reward', episode_reward, episode)
 
             # log
-            train_time = time.time() - time_stamp
+            episode_time = time.time() - time_stamp
             time_stamp = time.time()
-            print('episode#{}: reward={}, steps={}, noise_level={:.2f}, time={:.2f}'.format(
-                    episode, episode_reward, episode_steps, noise_level, train_time
+            print('episode #{}: reward={}, steps={}, noise_level={:.2f}, time={:.2f}'.format(
+                    episode, episode_reward, episode_steps, noise_level, episode_time
             ))
 
             observation = None

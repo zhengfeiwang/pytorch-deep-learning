@@ -34,8 +34,9 @@ def to_numpy(tensor):
 
 
 def to_tensor(ndarray, requires_grad=False, dtype=torch.float, device=torch.device("cpu")):
-    tensor = torch.from_numpy(ndarray).to(device, dtype)
-    return tensor.requires_grad_() if requires_grad else tensor.detach()
+    tensor = torch.from_numpy(ndarray)
+    tensor = tensor.to(device, dtype)
+    return tensor.requires_grad_() if requires_grad else tensor
 
 
 def soft_update(target, source, tau):
@@ -45,4 +46,6 @@ def soft_update(target, source, tau):
 
 
 def hard_update(target, source):
-    soft_update(target, source, 1.0)
+    for target_param, source_param in zip(target.parameters(), source.parameters()):
+        target_param.detach_()
+        target_param.copy_(source_param)

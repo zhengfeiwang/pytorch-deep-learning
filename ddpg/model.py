@@ -17,11 +17,10 @@ class Actor(nn.Module):
     def __init__(self, nb_states, nb_actions, hidden1=400, hidden2=300, init=3e-3, use_bn=True):
         super(Actor, self).__init__()
         self.use_bn = use_bn
-        self.bn1 = nn.BatchNorm1d(nb_states)
         self.fc1 = nn.Linear(nb_states, hidden1)
-        self.bn2 = nn.BatchNorm1d(hidden1)
+        self.bn1 = nn.BatchNorm1d(hidden1)
         self.fc2 = nn.Linear(hidden1, hidden2)
-        self.bn3 = nn.BatchNorm1d(hidden2)
+        self.bn2 = nn.BatchNorm1d(hidden2)
         self.fc3 = nn.Linear(hidden2, nb_actions)
         self.relu = nn.ReLU()
         self.tanh = nn.Tanh()
@@ -36,18 +35,14 @@ class Actor(nn.Module):
         self.fc3.bias = initialize(self.fc3.bias.size(), init=init)
 
     def forward(self, x):
+        out = self.fc1(x)
         if self.use_bn:
-            out = self.bn1(x)
-            out = self.fc1(out)
-        else:
-            out = self.fc1(x)
+            out = self.bn1(out)
         out = self.relu(out)
+        out = self.fc2(out)
         if self.use_bn:
             out = self.bn2(out)
-        out = self.fc2(out)
         out = self.relu(out)
-        if self.use_bn:
-            out = self.bn3(out)
         out = self.fc3(out)
         out = self.tanh(out)
 
@@ -58,8 +53,8 @@ class Critic(nn.Module):
     def __init__(self, nb_states, nb_actions, hidden1=400, hidden2=300, init=3e-3, use_bn=True):
         super(Critic, self).__init__()
         self.use_bn = use_bn
-        self.bns = nn.BatchNorm1d(nb_states)
         self.fc1 = nn.Linear(nb_states, hidden1)
+        self.bns = nn.BatchNorm1d(hidden1)
         self.fc2 = nn.Linear(hidden1 + nb_actions, hidden2)
         self.fc3 = nn.Linear(hidden2, 1)
         self.relu = nn.ReLU()
@@ -75,11 +70,9 @@ class Critic(nn.Module):
 
     def forward(self, x):
         state, action = x
+        s = self.fc1(state)
         if self.use_bn:
-            s = self.bns(state)
-            s = self.fc1(s)
-        else:
-            s = self.fc1(state)
+            s = self.bns(s)
         s = self.relu(s)
         out = self.fc2(torch.cat([s, action], 1))
         out = self.relu(out)

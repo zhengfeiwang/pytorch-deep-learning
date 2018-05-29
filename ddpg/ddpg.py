@@ -85,7 +85,7 @@ class DDPG(object):
 
     def select_action(self, state, exploration_noise=0, exploration_decay=True):
         self.eval()
-        action = to_numpy(self.actor(to_tensor(np.array([state]), device=device))).squeeze(0)
+        action = to_numpy(self.actor(to_tensor(np.array([state]), device=device)).detach()).squeeze(0)
         self.train()
         exploration_noise = exploration_noise * max(self.epsilon, 0)
         if exploration_decay:
@@ -97,64 +97,48 @@ class DDPG(object):
 
     def update_policy(self):
         state_batch, action_batch, reward_batch, next_state_batch, terminal_batch = self.memory.sample_batch(self.batch_size)
+        state = to_tensor(state_batch, device=device)
+        action = to_tensor(action_batch, device=device)
+        next_state = to_tensor(next_state_batch, device=device)
 
         # compute target Q value
-        next_q_values = self.critic_target([
-            to_tensor(next_state_batch, device=device),
-            self.actor_target(to_tensor(next_state_batch, device=device))
-        ])
-        target_q_batch = to_tensor(reward_batch, device=device) + \
-                         self.discount * to_tensor((1 - terminal_batch.astype(np.float)), device=device) * next_q_values
+        next_q_value = self.critic_target([next_state, self.actor_target(next_state)])
+        target_q_value = reward_batch + self.discount * (1 - terminal_batch) * next_q_value.detach()
+        target_q_value = target_q_value.to(torch.float)
 
         # Critic and Actor update
+        q_values = self.critic([state, action])
+        critic_loss = nn.MSELoss()(q_values, target_q_value.detach())
         self.critic.zero_grad()
-        q_batch = self.critic([to_tensor(state_batch, device=device), to_tensor(action_batch, device=device)])
-        critic_loss = nn.MSELoss()(q_batch, target_q_batch.detach())
         critic_loss.backward()
         self.critic_optim.step()
 
+        policy_loss = -self.critic([state, self.actor(state)])
+        policy_loss = policy_loss.mean()
         self.actor.zero_grad()
-        actor_loss = -self.critic([
-            to_tensor(state_batch, device=device),
-            self.actor(to_tensor(state_batch, device=device))
-        ]).mean()
-        actor_loss.backward()
+        policy_loss.backward()
         self.actor_optim.step()
 
         # Target update
         soft_update(self.actor_target, self.actor, self.tau)
         soft_update(self.critic_target, self.critic, self.tau)
 
-        return -actor_loss, critic_loss
+        return -policy_loss, critic_loss
 
     def save_model(self, output, num=1):
         if self.use_cuda:
             self.actor.to(torch.device("cpu"))
             self.critic.to(torch.device("cpu"))
-        torch.save(
-            self.actor.state_dict(),
-            '{}/actor{}.pkl'.format(output, num)
-        )
-        torch.save(
-            self.critic.state_dict(),
-            '{}/critic{}.pkl'.format(output, num)
-        )
+        torch.save(self.actor.state_dict(), '{}/actor{}.pkl'.format(output, num))
+        torch.save(self.critic.state_dict(), '{}/critic{}.pkl'.format(output, num))
         if self.use_cuda:
             self.actor.to(device)
             self.critic.to(device)
 
     def load_model(self, output, num=1):
-        self.actor.load_state_dict(
-            torch.load('{}/actor{}.pkl'.format(output, num))
-        )
-        self.actor_target.load_state_dict(
-            torch.load('{}/actor{}.pkl'.format(output, num))
-        )
-        self.critic.load_state_dict(
-            torch.load('{}/critic{}.pkl'.format(output, num))
-        )
-        self.critic_target.load_state_dict(
-            torch.load('{}/critic{}.pkl'.format(output, num))
-        )
+        self.actor.load_state_dict(torch.load('{}/actor{}.pkl'.format(output, num)))
+        self.actor_target.load_state_dict(torch.load('{}/actor{}.pkl'.format(output, num)))
+        self.critic.load_state_dict(torch.load('{}/critic{}.pkl'.format(output, num)))
+        self.critic_target.load_state_dict(torch.load('{}/critic{}.pkl'.format(output, num)))
         if self.use_cuda:
             self.cuda()
