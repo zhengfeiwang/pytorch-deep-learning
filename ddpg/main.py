@@ -16,7 +16,7 @@ def train(nb_iterations, agent, env, evaluator):
     episode_reward = 0.
     observation = None
     log = 0
-    noise_level = args.noise_level * random.uniform(0, 1) / 2.
+    apply_noise = args.apply_noise
     time_stamp = time.time()
 
     while step <= nb_iterations:
@@ -27,8 +27,7 @@ def train(nb_iterations, agent, env, evaluator):
         if step <= args.warmup:
             action = agent.random_action()
         else:
-            action = agent.select_action(observation, exploration_noise=noise_level)
-        print('action:', action)
+            action = agent.select_action(observation, apply_noise=apply_noise)
 
         observation, reward, done, info = env.step(action)
         if visualization:
@@ -49,23 +48,22 @@ def train(nb_iterations, agent, env, evaluator):
                 for i in range(episode_steps):
                     log += 1
                     Q, critic_loss = agent.update_policy()
-                    writer.add_scalar('train/Q', Q.to(torch.device("cpu")).detach().numpy(), log)
-                    writer.add_scalar('train/critic loss', critic_loss.to(torch.device("cpu")).detach().numpy(), log)
+                    writer.add_scalar('train/Q', Q, log)
+                    writer.add_scalar('train/critic loss', critic_loss, log)
 
             writer.add_scalar('train/train_reward', episode_reward, episode)
 
             # log
             episode_time = time.time() - time_stamp
             time_stamp = time.time()
-            print('episode #{}: reward={}, steps={}, noise_level={:.2f}, time={:.2f}'.format(
-                    episode, episode_reward, episode_steps, noise_level, episode_time
+            print('episode #{}: reward={}, steps={}, time={:.2f}'.format(
+                    episode, episode_reward, episode_steps, episode_time
             ))
 
             observation = None
             episode_steps = 0
             episode_reward = 0
             episode += 1
-            noise_level = args.noise_level * random.uniform(0, 1) / 2.
 
 
 if __name__ == "__main__":
@@ -81,12 +79,10 @@ if __name__ == "__main__":
     parser.add_argument('--actor_lr', default=1e-4, type=float, help='actor learning rate')
     parser.add_argument('--critic_lr', default=1e-3, type=float, help='critic learning rate')
     parser.add_argument('--batch_size', default=64, type=int, help='minibatch size')
-    parser.add_argument('--weight_decay', default=1e-2, type=float, help='L2 weight decay')
 
     parser.add_argument('--iterations', default=2000000, type=int, help='iterations during training')
     parser.add_argument('--warmup', default=1000, type=int, help='timestep without training to fill the replay buffer')
-    parser.add_argument('--noise_level', default=1, type=float, help='noise level added to the action')
-    parser.add_argument('--epsilon_decay', default=10000000, type=int, help='linear decay of exploration')
+    parser.add_argument('--apply_noise', dest='apply_noise', default=True, action='store_true', help='apply noise to the action')
     parser.add_argument('--validate_interval', default=10, type=int, help='how many episodes to validate')
     parser.add_argument('--save_interval', default=100, type=int, help='how many episodes to save model')
 

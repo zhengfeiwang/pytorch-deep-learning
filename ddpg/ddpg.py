@@ -8,6 +8,7 @@ from utils import OrnsteinUhlenbeckProcess
 from utils import to_numpy, to_tensor, soft_update, hard_update
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+criterion = nn.MSELoss()
 
 
 class DDPG(object):
@@ -28,7 +29,7 @@ class DDPG(object):
 
         self.critic = Critic(self.nb_states, self.nb_actions, **net_config)
         self.critic_target = Critic(self.nb_states, self.nb_actions, **net_config)
-        self.critic_optim = Adam(self.critic.parameters(), lr=args.critic_lr, weight_decay=args.weight_decay)
+        self.critic_optim = Adam(self.critic.parameters(), lr=args.critic_lr)
 
         hard_update(self.critic_target, self.critic)
         hard_update(self.actor_target, self.actor)
@@ -44,8 +45,6 @@ class DDPG(object):
         self.batch_size = args.batch_size
         self.tau = args.tau
         self.discount = args.discount
-        self.epsilon = 1.
-        self.epsilon_decay = 1. / args.epsilon_decay
 
         # CUDA
         self.use_cuda = args.cuda
@@ -83,47 +82,47 @@ class DDPG(object):
         self.last_action = action
         return action.argmax() if self.discrete else action
 
-    def select_action(self, state, exploration_noise=0, exploration_decay=True):
+    def select_action(self, state, apply_noise=False):
         self.eval()
-        action = to_numpy(self.actor(to_tensor(np.array([state]), device=device)).detach()).squeeze(0)
+        action = to_numpy(self.actor(to_tensor(np.array([state]), device=device))).squeeze(0)
         self.train()
-        exploration_noise = exploration_noise * max(self.epsilon, 0)
-        if exploration_decay:
-            self.epsilon -= self.epsilon_decay
-        action = action * (1 - exploration_noise) + self.noise.sample() * exploration_noise
+        if apply_noise:
+            action = action + self.noise.sample()
         action = np.clip(action, -1., 1.)
         self.last_action = action
+        #print('action:', action, 'output:', action.argmax())
         return action.argmax() if self.discrete else action
 
     def update_policy(self):
         state_batch, action_batch, reward_batch, next_state_batch, terminal_batch = self.memory.sample_batch(self.batch_size)
-        state = to_tensor(state_batch, device=device)
-        action = to_tensor(action_batch, device=device)
-        next_state = to_tensor(next_state_batch, device=device)
+        state = to_tensor(np.array(state_batch), device=device)
+        action = to_tensor(np.array(action_batch), device=device)
+        next_state = to_tensor(np.array(next_state_batch), device=device)
 
         # compute target Q value
         next_q_value = self.critic_target([next_state, self.actor_target(next_state)])
-        target_q_value = reward_batch + self.discount * (1 - terminal_batch) * next_q_value.detach()
-        target_q_value = target_q_value.to(torch.float)
+        target_q_value = to_tensor(reward_batch, device=device) \
+                         + self.discount * to_tensor((1 - terminal_batch.astype(np.float)), device=device) * next_q_value
 
         # Critic and Actor update
-        q_values = self.critic([state, action])
-        critic_loss = nn.MSELoss()(q_values, target_q_value.detach())
         self.critic.zero_grad()
-        critic_loss.backward()
-        self.critic_optim.step()
+        with torch.set_grad_enabled(True):
+            q_values = self.critic([state, action])
+            critic_loss = criterion(q_values, target_q_value.detach())
+            critic_loss.backward()
+            self.critic_optim.step()
 
-        policy_loss = -self.critic([state, self.actor(state)])
-        policy_loss = policy_loss.mean()
         self.actor.zero_grad()
-        policy_loss.backward()
-        self.actor_optim.step()
+        with torch.set_grad_enabled(True):
+            policy_loss = -self.critic([state.detach(), self.actor(state)]).mean()
+            policy_loss.backward()
+            self.actor_optim.step()
 
         # Target update
         soft_update(self.actor_target, self.actor, self.tau)
         soft_update(self.critic_target, self.critic, self.tau)
 
-        return -policy_loss, critic_loss
+        return to_numpy(-policy_loss), to_numpy(critic_loss)
 
     def save_model(self, output, num=1):
         if self.use_cuda:
