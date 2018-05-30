@@ -7,6 +7,7 @@ import torch
 import gym
 from tensorboardX import SummaryWriter
 from ddpg import DDPG
+from normalized_env import NormalizedEnv
 from evaluator import Evaluator
 
 
@@ -97,9 +98,11 @@ if __name__ == "__main__":
 
     writer = SummaryWriter(os.path.join(args.output, args.env))
 
-    env = gym.make(args.env)
     if args.discrete:
+        env = gym.make(args.env)
         env = env.unwrapped
+    else:
+        env = NormalizedEnv(gym.make(args.env))
 
     # set random seed
     if args.seed > 0:
