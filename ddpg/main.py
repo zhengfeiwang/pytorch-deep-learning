@@ -85,6 +85,7 @@ if __name__ == "__main__":
     parser.add_argument('--save_interval', default=100, type=int, help='how many episodes to save model')
 
     parser.add_argument('--validation_episodes', default=1, type=int, help='number of episodes during validation')
+    parser.add_argument('--checkpoint_interval', default=100, type=int, help='episodes interval to save model')
     parser.add_argument('--output', default='output', type=str)
     parser.add_argument('--visualization', dest='visualization', action='store_true')
     parser.add_argument('--cuda', dest='cuda', action='store_true')
@@ -93,7 +94,10 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    writer = SummaryWriter(os.path.join(args.output, args.env))
+    # TensorBoardX summary file
+    timestamp = time.time()
+    timestruct = time.localtime(timestamp)
+    writer = SummaryWriter(os.path.join(args.output, args.env + '@' + time.strftime('%Y-%m-%d %H:%M:%S', timestruct)))
 
     if args.discrete:
         env = gym.make(args.env)
