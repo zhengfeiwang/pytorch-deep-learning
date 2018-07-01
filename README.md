@@ -3,4 +3,4 @@
 - CNN (image classification, transfer learning)
 - RNN (sentiment classification, Bi-GRU)
 - DDPG
-- GAN (under working...)
+- Kaggle Competition (transfer learning + CNN ensemble)

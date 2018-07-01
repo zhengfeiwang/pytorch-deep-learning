@@ -6,7 +6,7 @@ Kaggle Competition, Playground Prediction Competition ([link](https://www.kaggle
 
 ##### Data distribution:
 
-![distribution](./distribution.PNG)
+![distribution](./distribution.png)
 
 As can be clearly seen from the chart, the number of Loose Silky-bent is twice than the number of Shepherds Purse / Common wheat, which leads to two major approaches to process with the dataset:
 
